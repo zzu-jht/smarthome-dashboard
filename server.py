@@ -56,7 +56,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(404); self.end_headers()
 
     def do_GET(self):
-        if self.path.startswith('/proxy/iotda'):
+        if self.path == '/query':
+            self._handle_query()
+        elif self.path.startswith('/proxy/iotda'):
             if not self._session_ok():
                 self.send_response(401); self._cors()
                 self.send_header('Content-Type', 'application/json')
@@ -67,6 +69,38 @@ class Handler(SimpleHTTPRequestHandler):
             self._proxy_get(IOTDA_URL + real_path)
         else:
             super().do_GET()
+
+    def _handle_query(self):
+        # 先获取 IAM token
+        try:
+            iam_body = json.dumps({"auth":{"identity":{"methods":["password"],"password":{"user":{"domain":{"id":"019daebe5a21730fb6f7b308ad52a284"},"name":"esp32test","password":"Test1234"}}},"scope":{"project":{"id":"019daec06b7f75309869716ef4016d9f"}}}}).encode()
+            iam_req = urllib.request.Request(IAM_URL, data=iam_body, headers={'Content-Type':'application/json'}, method='POST')
+            with urllib.request.urlopen(iam_req) as r:
+                hw_token = r.headers.get('X-Subject-Token', '')
+            # 查设备影子
+            shadow_url = IOTDA_URL + '/v5/iot/019daec06b7f75309869716ef4016d9f/devices/69e77120cbb0cf6bb953468c_esp32_zzujht/shadow'
+            shadow_req = urllib.request.Request(shadow_url, headers={'X-Auth-Token': hw_token}, method='GET')
+            with urllib.request.urlopen(shadow_req) as r:
+                data = json.loads(r.read())
+            props = data.get('shadow', [{}])[0].get('reported', {}).get('properties', {})
+            temp  = props.get('temperature')
+            humi  = props.get('humidity')
+            light = props.get('light')
+            pir   = props.get('pir')
+            parts = []
+            if temp  is not None: parts.append(f"温度{round(float(temp), 1)}度")
+            if humi  is not None: parts.append(f"湿度{round(float(humi), 1)}%")
+            if light is not None: parts.append(f"光照{light}")
+            if pir   is not None: parts.append("有人" if pir else "无人")
+            text = "，".join(parts) if parts else "暂无数据"
+            result = f"室内环境：{text}".encode('utf-8')
+        except Exception as e:
+            result = f"查询失败：{e}".encode('utf-8')
+        self.send_response(200)
+        self._cors()
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(result)
 
     def _handle_login(self):
         length = int(self.headers.get('Content-Length', 0))
