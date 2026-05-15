@@ -40,6 +40,10 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == '/api/login':
             self._handle_login()
             return
+        # 小爱技能 Webhook，不需要 session
+        if self.path == '/skill':
+            self._handle_skill()
+            return
         # 其余 POST 需要 session
         if not self._session_ok():
             self.send_response(401); self._cors()
@@ -101,6 +105,45 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.end_headers()
         self.wfile.write(result)
+
+    def _handle_skill(self):
+        # 获取传感器数据
+        try:
+            iam_body = json.dumps({"auth":{"identity":{"methods":["password"],"password":{"user":{"domain":{"id":"019daebe5a21730fb6f7b308ad52a284"},"name":"esp32test","password":"Test1234"}}},"scope":{"project":{"id":"019daec06b7f75309869716ef4016d9f"}}}}).encode()
+            iam_req = urllib.request.Request(IAM_URL, data=iam_body, headers={'Content-Type':'application/json'}, method='POST')
+            with urllib.request.urlopen(iam_req, timeout=5) as r:
+                hw_token = r.headers.get('X-Subject-Token', '')
+            shadow_url = IOTDA_URL + '/v5/iot/019daec06b7f75309869716ef4016d9f/devices/69e77120cbb0cf6bb953468c_esp32_zzujht/shadow'
+            shadow_req = urllib.request.Request(shadow_url, headers={'X-Auth-Token': hw_token}, method='GET')
+            with urllib.request.urlopen(shadow_req, timeout=5) as r:
+                data = json.loads(r.read())
+            props = data.get('shadow', [{}])[0].get('reported', {}).get('properties', {})
+            temp  = props.get('temperature')
+            humi  = props.get('humidity')
+            light = props.get('light')
+            pir   = props.get('pir')
+            parts = []
+            if temp  is not None: parts.append(f"温度{round(float(temp), 1)}度")
+            if humi  is not None: parts.append(f"湿度{round(float(humi), 1)}%")
+            if light is not None: parts.append(f"光照强度{light}")
+            if pir   is not None: parts.append("有人在室内" if pir else "室内无人")
+            text = "，".join(parts) if parts else "暂无数据"
+            speak = f"当前室内环境：{text}"
+        except Exception as e:
+            speak = "查询失败，请稍后再试"
+        resp = {
+            "version": "1.0",
+            "response": {
+                "toSpeak": {"type": "T", "text": speak},
+                "toDisplay": {"type": "T", "text": speak},
+                "shouldEndSession": True
+            }
+        }
+        self.send_response(200)
+        self._cors()
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(resp, ensure_ascii=False).encode('utf-8'))
 
     def _handle_login(self):
         length = int(self.headers.get('Content-Length', 0))
