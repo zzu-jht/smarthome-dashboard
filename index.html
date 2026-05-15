@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SmartHome · 智能家居平台</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ══════════════════════════════════════════
+   Reset & Tokens
+══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:        #070d1a;
+  --surface-1: #0d1626;
+  --surface-2: #111f35;
+  --surface-3: #162540;
+  --border:    rgba(56,189,248,.12);
+  --border-h:  rgba(56,189,248,.35);
+  --accent:    #38bdf8;
+  --accent2:   #818cf8;
+  --accent3:   #34d399;
+  --warn:      #fb923c;
+  --danger:    #f87171;
+  --text-1:    #f0f6ff;
+  --text-2:    #94a3b8;
+  --text-3:    #475569;
+  --on-color:  #4ade80;
+  --r:         14px;
+  --r-sm:      9px;
+  --shadow:    0 4px 24px rgba(0,0,0,.45);
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);color:var(--text-1);
+  min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56,189,248,.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(129,140,248,.06) 0%, transparent 55%);
+}
+
+/* ══════════════════════════════════════════
+   侧边栏导航
+══════════════════════════════════════════ */
+#sidebar{
+  position:fixed;top:0;left:0;height:100vh;width:64px;
+  background:var(--surface-1);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:20px 0;gap:6px;z-index:100;
+  transition:width .3s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+#sidebar:hover{width:200px}
+#sidebar .logo{
+  display:flex;align-items:center;gap:10px;
+  width:100%;padding:0 18px;margin-bottom:18px;
+  white-space:nowrap;overflow:hidden;
+}
+#sidebar .logo-ico{font-size:22px;flex-shrink:0}
+#sidebar .logo-txt{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.5px;opacity:0;transition:opacity .2s .05s}
+#sidebar:hover .logo-txt{opacity:1}
+
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  width:calc(100% - 16px);padding:11px 12px;
+  border-radius:var(--r-sm);cursor:pointer;
+  color:var(--text-2);font-size:13px;font-weight:500;
+  white-space:nowrap;overflow:hidden;
+  transition:background .18s,color .18s;
+  border:none;background:transparent;text-align:left;
+}
+.nav-item .nav-ico{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+.nav-item .nav-lbl{opacity:0;transition:opacity .15s .05s}
+#sidebar:hover .nav-lbl{opacity:1}
+.nav-item:hover{background:var(--surface-3);color:var(--text-1)}
+.nav-item.active{background:rgba(56,189,248,.12);color:var(--accent)}
+
+/* ══════════════════════════════════════════
+   顶栏
+══════════════════════════════════════════ */
+#topbar{
+  position:fixed;top:0;left:64px;right:0;height:60px;
+  background:rgba(7,13,26,.85);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;z-index:90;
+}
+.topbar-left h2{font-size:16px;font-weight:600;color:var(--text-1)}
+.topbar-left p{font-size:11px;color:var(--text-3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:20px}
+.conn-pill{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:99px;
+  background:var(--surface-2);border:1px solid var(--border);
+  font-size:12px;color:var(--text-2);
+}
+#conn-dot{width:7px;height:7px;border-radius:50%;background:#ef4444;transition:background .4s,box-shadow .4s}
+#conn-dot.ok{background:#22c55e;box-shadow:0 0 6px #22c55e88}
+#last-upd{font-size:11px;color:var(--text-3)}
+.refresh-btn{
+  background:none;border:1px solid var(--border);border-radius:var(--r-sm);
+  color:var(--text-2);font-size:12px;padding:5px 12px;cursor:pointer;
+  transition:all .18s;
+}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ══════════════════════════════════════════
+   主内容区
+══════════════════════════════════════════ */
+#main{
+  margin-left:64px;padding-top:60px;
+  min-height:100vh;
+}
+.page{max-width:1360px;margin:0 auto;padding:28px 24px}
+
+/* 页签 */
+.tabs{display:flex;gap:4px;margin-bottom:28px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--r);padding:5px}
+.tab{
+  flex:1;padding:9px 0;border:none;border-radius:var(--r-sm);
+  background:transparent;color:var(--text-2);font-size:13px;font-weight:500;
+  cursor:pointer;transition:all .2s;
+}
+.tab.active{background:var(--surface-3);color:var(--text-1);box-shadow:var(--shadow)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* 区块标题 */
+.sec{margin-bottom:28px}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-title{
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text-3);display:flex;align-items:center;gap:8px;
+}
+.sec-title::before{content:'';display:block;width:3px;height:14px;background:var(--accent);border-radius:2px}
+
+/* ══════════════════════════════════════════
+   KPI 大数字行
+══════════════════════════════════════════ */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.kpi{
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px 18px;
+  display:flex;flex-direction:column;gap:8px;
+  position:relative;overflow:hidden;
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+  cursor:default;
+}
+.kpi::after{
+  content:'';position:absolute;inset:0;border-radius:var(--r);
+  background:linear-gradient(135deg,rgba(56,189,248,.04) 0%,transparent 60%);
+  pointer-events:none;
+}
+.kpi:hover{border-color:var(--border-h);transform:translateY(-2px);box-shadow:0 8px 32px rgba(56,189,248,.08)}
+.kpi-ico{font-size:22px;line-height:1}
+.kpi-lbl{font-size:11px;color:var(--text-3);letter-spacing:.5px;text-transform:uppercase}
+.kpi-val{font-size:34px;font-weight:700;color:var(--text-1);line-height:1;font-variant-numeric:tabular-nums}
+.kpi-unit{font-size:12px;color:var(--text-2)}
+.kpi-accent{position:absolute;top:0;right:0;width:3px;height:100%;border-radius:0 var(--r) var(--r) 0}
+
+/* ══════════════════════════════════════════
+   状态徽章
+══════════════════════════════════════════ */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 11px;border-radius:99px;
+  font-size:12px;font-weight:600;letter-spacing:.3px;
+}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%}
+.b-on {background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.25)}
+.b-on::before{background:#4ade80;box-shadow:0 0 4px #4ade8088}
+.b-off{background:rgba(71,85,105,.15);color:#64748b;border:1px solid rgba(71,85,105,.25)}
+.b-off::before{background:#475569}
+.b-warn{background:rgba(251,146,60,.1);color:#fb923c;border:1px solid rgba(251,146,60,.25)}
+.b-warn::before{background:#fb923c;box-shadow:0 0 4px #fb923c88;animation:pulse-dot 1.2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ══════════════════════════════════════════
+   状态卡片行（布尔值）
+══════════════════════════════════════════ */
+.status-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.status-card{
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  transition:border-color .2s;
+}
+.status-card:hover{border-color:var(--border-h)}
+.sc-left{display:flex;align-items:center;gap:12px}
+.sc-ico{
+  width:42px;height:42px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;background:var(--surface-3);
+  border:1px solid var(--border);
+}
+.sc-info .sc-name{font-size:13px;font-weight:500;color:var(--text-1)}
+.sc-info .sc-sub{font-size:11px;color:var(--text-3);margin-top:2px}
+
+/* ══════════════════════════════════════════
+   图表卡片（总览小图）
+══════════════════════════════════════════ */
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}
+.chart-card{
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;
+}
+.chart-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.chart-title{font-size:13px;font-weight:600;color:var(--text-1);display:flex;align-items:center;gap:8px}
+.chart-dot{width:8px;height:8px;border-radius:50%}
+.chart-stat{font-size:11px;color:var(--text-3)}
+.chart-wrap{position:relative;height:190px}
+
+/* ══════════════════════════════════════════
+   数据曲线页专业图表
+══════════════════════════════════════════ */
+.charts-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;flex-wrap:wrap;gap:10px;
+}
+.charts-toolbar-left{display:flex;align-items:center;gap:10px}
+.range-btn{
+  padding:5px 14px;border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:var(--text-2);font-size:12px;cursor:pointer;transition:all .2s;
+}
+.range-btn.active,.range-btn:hover{
+  background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.4);color:var(--accent);
+}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--accent3);
+  animation:pulse-dot 1.4s ease-in-out infinite;display:inline-block;margin-right:4px;
+}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.pro-chart-card{
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:var(--r);padding:24px 24px 20px;margin-bottom:16px;
+  transition:border-color .2s;
+}
+.pro-chart-card:hover{border-color:var(--border-h)}
+.pro-chart-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.pro-chart-meta{display:flex;flex-direction:column;gap:4px}
+.pro-chart-name{font-size:13px;color:var(--text-2);font-weight:500;display:flex;align-items:center;gap:7px}
+.pro-chart-accent{width:3px;height:16px;border-radius:2px}
+.pro-chart-val{font-size:32px;font-weight:700;color:var(--text-1);line-height:1;letter-spacing:-1px}
+.pro-chart-unit{font-size:14px;font-weight:400;color:var(--text-3);margin-left:3px}
+.pro-chart-stats{display:flex;gap:20px;flex-wrap:wrap}
+.pro-stat{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
+.pro-stat-label{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}
+.pro-stat-value{font-size:14px;font-weight:600;color:var(--text-2)}
+.pro-chart-wrap{position:relative;height:200px}
+
+/* ══════════════════════════════════════════
+   控制面板
+══════════════════════════════════════════ */
+.ctrl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.ctrl-card{
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:var(--r);padding:24px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  transition:border-color .2s;
+}
+.ctrl-card:hover{border-color:var(--border-h)}
+.ctrl-ico-wrap{
+  width:64px;height:64px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;position:relative;
+  background:var(--surface-3);border:1px solid var(--border);
+  transition:all .3s;
+}
+.ctrl-ico-wrap.active{
+  background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.4);
+  box-shadow:0 0 20px rgba(56,189,248,.15);
+}
+.ctrl-ico-wrap.active-warn{
+  background:rgba(251,146,60,.1);border-color:rgba(251,146,60,.4);
+  box-shadow:0 0 20px rgba(251,146,60,.12);
+}
+.ctrl-name{font-size:14px;font-weight:600;color:var(--text-1)}
+.ctrl-desc{font-size:11px;color:var(--text-3);text-align:center;line-height:1.5}
+
+/* 切换开关 */
+.toggle-wrap{display:flex;align-items:center;gap:10px}
+.toggle{position:relative;width:48px;height:26px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{
+  position:absolute;inset:0;border-radius:13px;
+  background:var(--surface-3);border:1px solid var(--border);
+  transition:all .3s;
+}
+.toggle input:checked + .toggle-track{background:rgba(56,189,248,.2);border-color:var(--accent)}
+.toggle-thumb{
+  position:absolute;top:3px;left:3px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--text-3);transition:all .3s;
+}
+.toggle input:checked ~ .toggle-thumb{left:25px;background:var(--accent);box-shadow:0 0 8px rgba(56,189,248,.6)}
+.toggle-lbl{font-size:13px;color:var(--text-2)}
+
+/* 按钮 */
+.btn{
+  padding:10px 0;border:none;border-radius:var(--r-sm);
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .2s;width:100%;letter-spacing:.3px;
+}
+.btn-primary{background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff}
+.btn-primary:hover{background:linear-gradient(135deg,#38bdf8,#0ea5e9);box-shadow:0 4px 16px rgba(56,189,248,.3)}
+.btn-secondary{background:var(--surface-3);color:var(--accent);border:1px solid rgba(56,189,248,.25)}
+.btn-secondary:hover{background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.5)}
+.btn-danger{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff}
+.btn-danger:hover{background:linear-gradient(135deg,#8b5cf6,#7c3aed);box-shadow:0 4px 16px rgba(124,58,237,.3)}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+
+/* ══════════════════════════════════════════
+   告警横幅
+══════════════════════════════════════════ */
+#alert-bar{
+  display:none;
+  background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(251,146,60,.08));
+  border:1px solid rgba(239,68,68,.3);border-radius:var(--r);
+  padding:14px 18px;margin-bottom:20px;
+  align-items:center;justify-content:space-between;gap:12px;
+}
+#alert-bar.show{display:flex}
+#alert-bar .ab-left{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--danger)}
+#alert-bar .ab-ico{font-size:18px;animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.ab-dismiss{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:16px;padding:2px 6px}
+.ab-dismiss:hover{color:var(--danger)}
+
+/* ══════════════════════════════════════════
+   关于页
+══════════════════════════════════════════ */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.info-card{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--r);padding:22px}
+.info-card h3{font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-row .ik{color:var(--text-3)}
+.info-row .iv{color:var(--text-1);font-weight:500;text-align:right;max-width:55%}
+.iv-mono{font-family:monospace;font-size:11px;color:var(--accent)}
+
+/* ══════════════════════════════════════════
+   Toast
+══════════════════════════════════════════ */
+#toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:12px 18px;
+  font-size:13px;color:var(--text-1);
+  opacity:0;transform:translateY(10px) scale(.97);
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;z-index:9999;
+  display:flex;align-items:center;gap:8px;max-width:320px;
+  box-shadow:var(--shadow);
+}
+#toast.show{opacity:1;transform:translateY(0) scale(1)}
+#toast.ok{border-color:rgba(74,222,128,.4);color:#4ade80}
+#toast.err{border-color:rgba(248,113,113,.4);color:#f87171}
+
+/* ══════════════════════════════════════════
+   Loading 骨架
+══════════════════════════════════════════ */
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skeleton{
+  background:linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 50%,var(--surface-2) 75%);
+  background-size:800px 100%;animation:shimmer 1.4s infinite;
+  border-radius:6px;color:transparent;pointer-events:none;
+}
+
+/* ══════════════════════════════════════════
+   滚动条
+══════════════════════════════════════════ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
+
+/* ══════════════════════════════════════════
+   响应式
+══════════════════════════════════════════ */
+@media(max-width:768px){
+  #sidebar{width:0;border:none}
+  #sidebar:hover{width:200px}
+  #main{margin-left:0}
+  #topbar{left:0;padding:0 16px}
+  .page{padding:20px 12px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .chart-grid{grid-template-columns:1fr}
+}
+/* ══════════════════════════════════════════
+   登录页
+══════════════════════════════════════════ */
+#login-mask{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56,189,248,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(129,140,248,.08) 0%, transparent 55%);
+  display:flex;align-items:center;justify-content:center;
+}
+#login-mask.hidden{display:none}
+.login-box{
+  width:360px;padding:40px 36px;
+  background:var(--surface-1);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:0 24px 64px rgba(0,0,0,.6);
+}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo-icon{font-size:40px;display:block;margin-bottom:8px}
+.login-logo-title{font-size:20px;font-weight:700;color:var(--text-1)}
+.login-logo-sub{font-size:12px;color:var(--text-3);margin-top:4px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:6px;font-weight:500}
+.login-field input{
+  width:100%;padding:10px 14px;
+  background:var(--surface-3);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--text-1);font-size:14px;outline:none;
+  transition:border-color .2s;
+}
+.login-field input:focus{border-color:var(--accent)}
+.login-btn{
+  width:100%;padding:11px;margin-top:8px;
+  background:var(--accent);color:#070d1a;
+  font-size:14px;font-weight:700;border:none;
+  border-radius:var(--r-sm);cursor:pointer;transition:opacity .2s;
+}
+.login-btn:hover{opacity:.85}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-err{font-size:12px;color:var(--danger);text-align:center;margin-top:10px;min-height:16px}
+</style>
+</head>
+<body>
+
+<!-- ══ 登录遮罩 ══ -->
+<div id="login-mask">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="login-logo-icon">🏠</span>
+      <div class="login-logo-title">SmartHome</div>
+      <div class="login-logo-sub">智能家居管理平台</div>
+    </div>
+    <div class="login-field">
+      <label>访问密码</label>
+      <input type="password" id="login-pwd" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">登 录</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ══ 侧边栏 ══ -->
+<nav id="sidebar">
+  <div class="logo">
+    <span class="logo-ico">🏠</span>
+    <span class="logo-txt">SmartHome</span>
+  </div>
+  <button class="nav-item active" onclick="switchTab('overview')">
+    <span class="nav-ico">📊</span><span class="nav-lbl">总览</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('control')">
+    <span class="nav-ico">🎛️</span><span class="nav-lbl">控制</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('charts')">
+    <span class="nav-ico">📈</span><span class="nav-lbl">数据曲线</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('about')">
+    <span class="nav-ico">ℹ️</span><span class="nav-lbl">设备信息</span>
+  </button>
+</nav>
+
+<!-- ══ 顶栏 ══ -->
+<header id="topbar">
+  <div class="topbar-left">
+    <h2 id="page-title">总览</h2>
+    <p id="page-sub">实时监控所有传感器与设备状态</p>
+  </div>
+  <div class="topbar-right">
+    <span id="last-upd">—</span>
+    <div class="conn-pill">
+      <div id="conn-dot"></div>
+      <span id="conn-txt">连接中...</span>
+    </div>
+    <button class="refresh-btn" onclick="poll()">↻ 刷新</button>
+  </div>
+</header>
+
+<!-- ══ 主内容 ══ -->
+<main id="main">
+<div class="page">
+
+  <!-- 告警横幅 -->
+  <div id="alert-bar">
+    <div class="ab-left">
+      <span class="ab-ico">🚨</span>
+      <span id="alert-msg">告警</span>
+    </div>
+    <button class="ab-dismiss" onclick="dismissAlert()">✕</button>
+  </div>
+
+  <!-- ══ 总览页 ══ -->
+  <div id="tab-overview" class="tab-panel active">
+
+    <div class="sec">
+      <div class="sec-hd"><span class="sec-title">环境传感器</span></div>
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-accent" style="background:#f59e0b"></div>
+          <span class="kpi-ico">🌡️</span>
+          <span class="kpi-lbl">温度</span>
+          <span class="kpi-val" id="v-temp">--</span>
+          <span class="kpi-unit">°C</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-accent" style="background:#38bdf8"></div>
+          <span class="kpi-ico">💧</span>
+          <span class="kpi-lbl">湿度</span>
+          <span class="kpi-val" id="v-humi">--</span>
+          <span class="kpi-unit">%RH</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-accent" style="background:#a78bfa"></div>
+          <span class="kpi-ico">☀️</span>
+          <span class="kpi-lbl">光照强度</span>
+          <span class="kpi-val" id="v-light">--</span>
+          <span class="kpi-unit">ADC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd"><span class="sec-title">设备状态</span></div>
+      <div class="status-row">
+        <div class="status-card">
+          <div class="sc-left">
+            <div class="sc-ico">🚶</div>
+            <div class="sc-info">
+              <div class="sc-name">人体感应</div>
+              <div class="sc-sub">PIR 传感器</div>
+            </div>
+          </div>
+          <div id="v-pir"><span class="badge b-off">--</span></div>
+        </div>
+        <div class="status-card">
+          <div class="sc-left">
+            <div class="sc-ico">🔒</div>
+            <div class="sc-info">
+              <div class="sc-name">门锁状态</div>
+              <div class="sc-sub">电磁锁反馈</div>
+            </div>
+          </div>
+          <div id="v-lock"><span class="badge b-off">--</span></div>
+        </div>
+        <div class="status-card">
+          <div class="sc-left">
+            <div class="sc-ico">💡</div>
+            <div class="sc-info">
+              <div class="sc-name">灯光</div>
+              <div class="sc-sub">LED 控制</div>
+            </div>
+          </div>
+          <div id="v-led"><span class="badge b-off">--</span></div>
+        </div>
+        <div class="status-card">
+          <div class="sc-left">
+            <div class="sc-ico">🔔</div>
+            <div class="sc-info">
+              <div class="sc-name">蜂鸣器</div>
+              <div class="sc-sub">告警输出</div>
+            </div>
+          </div>
+          <div id="v-buzzer"><span class="badge b-off">--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 总览迷你图 -->
+    <div class="sec">
+      <div class="sec-hd"><span class="sec-title">趋势预览</span></div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-hd">
+            <span class="chart-title"><span class="chart-dot" style="background:#f59e0b"></span>温度 (°C)</span>
+            <span class="chart-stat" id="cs-temp">—</span>
+          </div>
+          <div class="chart-wrap"><canvas id="c-temp"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-hd">
+            <span class="chart-title"><span class="chart-dot" style="background:#38bdf8"></span>湿度 (%)</span>
+            <span class="chart-stat" id="cs-humi">—</span>
+          </div>
+          <div class="chart-wrap"><canvas id="c-humi"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-overview -->
+
+  <!-- ══ 控制页 ══ -->
+  <div id="tab-control" class="tab-panel">
+    <div class="sec">
+      <div class="sec-hd"><span class="sec-title">设备控制</span></div>
+      <div class="ctrl-grid">
+
+        <!-- 灯光 -->
+        <div class="ctrl-card">
+          <div class="ctrl-ico-wrap" id="ico-led">💡</div>
+          <div style="text-align:center">
+            <div class="ctrl-name">灯光控制</div>
+            <div class="ctrl-desc">控制室内 LED 灯光<br>开关状态同步至云端</div>
+          </div>
+          <label class="toggle" id="tog-led-wrap">
+            <input type="checkbox" id="tog-led" onchange="toggleLED(this)">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+          <div class="toggle-wrap">
+            <span class="toggle-lbl" id="lbl-led">已关闭</span>
+          </div>
+        </div>
+
+        <!-- 蜂鸣器 -->
+        <div class="ctrl-card">
+          <div class="ctrl-ico-wrap" id="ico-buz">🔔</div>
+          <div style="text-align:center">
+            <div class="ctrl-name">蜂鸣器控制</div>
+            <div class="ctrl-desc">手动触发或关闭<br>声音告警输出</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="tog-buz" onchange="toggleBuzzer(this)">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+          <div class="toggle-wrap">
+            <span class="toggle-lbl" id="lbl-buz">已关闭</span>
+          </div>
+        </div>
+
+        <!-- 电磁锁 -->
+        <div class="ctrl-card">
+          <div class="ctrl-ico-wrap" id="ico-lock">🔓</div>
+          <div style="text-align:center">
+            <div class="ctrl-name">电磁锁控制</div>
+            <div class="ctrl-desc">发送脉冲开锁信号<br>锁将自动在延时后复位</div>
+          </div>
+          <button class="btn btn-danger" id="btn-lock" onclick="triggerLock()" style="width:140px">
+            发送开锁脉冲
+          </button>
+          <span style="font-size:11px;color:var(--text-3)">点击一次触发一次</span>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /tab-control -->
+
+  <!-- ══ 曲线页 ══ -->
+  <div id="tab-charts" class="tab-panel">
+    <div class="sec">
+      <div class="charts-toolbar">
+        <div class="charts-toolbar-left">
+          <span style="font-size:13px;font-weight:600;color:var(--text-1)">传感器数据曲线</span>
+          <span style="font-size:12px;color:var(--text-3)"><span class="live-dot"></span>实时更新（10s/次）</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="range-btn active" id="rb-60"  onclick="setRange(60,this)">60条</button>
+          <button class="range-btn"        id="rb-120" onclick="setRange(120,this)">120条</button>
+          <button class="range-btn"        id="rb-all" onclick="setRange(0,this)">全部</button>
+          <button class="range-btn" onclick="clearHistory()" style="color:var(--text-3)">清除</button>
+        </div>
+      </div>
+
+      <!-- 温度 -->
+      <div class="pro-chart-card">
+        <div class="pro-chart-hd">
+          <div class="pro-chart-meta">
+            <div class="pro-chart-name">
+              <div class="pro-chart-accent" style="background:#f59e0b"></div>
+              温度
+            </div>
+            <div class="pro-chart-val" id="pv-temp">—<span class="pro-chart-unit">°C</span></div>
+          </div>
+          <div class="pro-chart-stats">
+            <div class="pro-stat"><span class="pro-stat-label">最低</span><span class="pro-stat-value" id="ps-temp-min">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">最高</span><span class="pro-stat-value" id="ps-temp-max">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">平均</span><span class="pro-stat-value" id="ps-temp-avg">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">样本</span><span class="pro-stat-value" id="ps-temp-cnt">0</span></div>
+          </div>
+        </div>
+        <div class="pro-chart-wrap"><canvas id="c-temp2"></canvas></div>
+      </div>
+
+      <!-- 湿度 -->
+      <div class="pro-chart-card">
+        <div class="pro-chart-hd">
+          <div class="pro-chart-meta">
+            <div class="pro-chart-name">
+              <div class="pro-chart-accent" style="background:#38bdf8"></div>
+              湿度
+            </div>
+            <div class="pro-chart-val" id="pv-humi">—<span class="pro-chart-unit">%RH</span></div>
+          </div>
+          <div class="pro-chart-stats">
+            <div class="pro-stat"><span class="pro-stat-label">最低</span><span class="pro-stat-value" id="ps-humi-min">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">最高</span><span class="pro-stat-value" id="ps-humi-max">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">平均</span><span class="pro-stat-value" id="ps-humi-avg">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">样本</span><span class="pro-stat-value" id="ps-humi-cnt">0</span></div>
+          </div>
+        </div>
+        <div class="pro-chart-wrap"><canvas id="c-humi2"></canvas></div>
+      </div>
+
+      <!-- 光照 -->
+      <div class="pro-chart-card">
+        <div class="pro-chart-hd">
+          <div class="pro-chart-meta">
+            <div class="pro-chart-name">
+              <div class="pro-chart-accent" style="background:#a78bfa"></div>
+              光照强度
+            </div>
+            <div class="pro-chart-val" id="pv-light">—<span class="pro-chart-unit">ADC</span></div>
+          </div>
+          <div class="pro-chart-stats">
+            <div class="pro-stat"><span class="pro-stat-label">最低</span><span class="pro-stat-value" id="ps-light-min">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">最高</span><span class="pro-stat-value" id="ps-light-max">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">平均</span><span class="pro-stat-value" id="ps-light-avg">—</span></div>
+            <div class="pro-stat"><span class="pro-stat-label">暗阈值</span><span class="pro-stat-value" style="color:#a78bfa">3000</span></div>
+          </div>
+        </div>
+        <div class="pro-chart-wrap"><canvas id="c-light2"></canvas></div>
+      </div>
+
+    </div>
+  </div><!-- /tab-charts -->
+
+  <!-- ══ 设备信息页 ══ -->
+  <div id="tab-about" class="tab-panel">
+    <div class="sec">
+      <div class="sec-hd"><span class="sec-title">设备 & 平台信息</span></div>
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>☁️ 华为云 IoTDA</h3>
+          <div class="info-row"><span class="ik">设备 ID</span><span class="iv iv-mono">69e77120..._esp32_zzujht</span></div>
+          <div class="info-row"><span class="ik">项目 ID</span><span class="iv iv-mono">019daec0...016d9f</span></div>
+          <div class="info-row"><span class="ik">区域</span><span class="iv">华北-北京四</span></div>
+          <div class="info-row"><span class="ik">接入端点</span><span class="iv iv-mono">iotda-app</span></div>
+          <div class="info-row"><span class="ik">服务 ID</span><span class="iv">SmartHome</span></div>
+          <div class="info-row"><span class="ik">数据刷新</span><span class="iv">每 10 秒</span></div>
+        </div>
+        <div class="info-card">
+          <h3>📡 网关节点</h3>
+          <div class="info-row"><span class="ik">型号</span><span class="iv">FireBeetle ESP32-S3</span></div>
+          <div class="info-row"><span class="ik">MAC</span><span class="iv iv-mono">F4:12:FA:52:AC:9C</span></div>
+          <div class="info-row"><span class="ik">通信</span><span class="iv">WiFi + MQTT TLS</span></div>
+          <div class="info-row"><span class="ik">外设</span><span class="iv">OLED + ASR语音</span></div>
+          <div class="info-row"><span class="ik">组网</span><span class="iv">ESP-NOW 主节点</span></div>
+        </div>
+        <div class="info-card">
+          <h3>🔬 感知节点</h3>
+          <div class="info-row"><span class="ik">型号</span><span class="iv">ESP32-WROOM-32U</span></div>
+          <div class="info-row"><span class="ik">温湿度</span><span class="iv">DHT11 · GPIO22</span></div>
+          <div class="info-row"><span class="ik">光照</span><span class="iv">光敏电阻 · GPIO34</span></div>
+          <div class="info-row"><span class="ik">人体感应</span><span class="iv">PIR · GPIO23</span></div>
+          <div class="info-row"><span class="ik">上报周期</span><span class="iv">2 秒（PIR触发立即）</span></div>
+        </div>
+        <div class="info-card">
+          <h3>⚙️ 执行节点</h3>
+          <div class="info-row"><span class="ik">型号</span><span class="iv">ESP32-WROOM-32U</span></div>
+          <div class="info-row"><span class="ik">MAC</span><span class="iv iv-mono">7C:9E:BD:39:68:04</span></div>
+          <div class="info-row"><span class="ik">LED</span><span class="iv">GPIO15</span></div>
+          <div class="info-row"><span class="ik">蜂鸣器</span><span class="iv">GPIO25（低电平触发）</span></div>
+          <div class="info-row"><span class="ik">电磁锁</span><span class="iv">GPIO27（脉冲 500ms）</span></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-about -->
+
+</div><!-- /page -->
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  配置（直接从小程序云函数 index.js 复用）
+// ═══════════════════════════════════════════════
+const PROJECT_ID = '019daec06b7f75309869716ef4016d9f'
+const DEVICE_ID  = '69e77120cbb0cf6bb953468c_esp32_zzujht'
+// 自动适配：本地开发和公网部署都能用
+const BASE      = location.origin
+const IOTDA_BASE = BASE + '/proxy/iotda'
+const IAM_URL    = BASE + '/proxy/token'
+const LOGIN_URL  = BASE + '/api/login'
+const DOMAIN_ID  = '019daebe5a21730fb6f7b308ad52a284'
+const USERNAME   = 'esp32test'
+const PASSWORD   = 'Test1234'
+const SERVICE_ID = 'SmartHome'
+const POLL_MS    = 10000
+
+// ═══════════════════════════════════════════════
+//  登录 / Session
+// ═══════════════════════════════════════════════
+let _sessionToken = sessionStorage.getItem('sh_session') || ''
+
+async function doLogin() {
+  const pwd = document.getElementById('login-pwd').value
+  const btn = document.getElementById('login-btn')
+  const err = document.getElementById('login-err')
+  if (!pwd) { err.textContent = '请输入密码'; return }
+  btn.disabled = true; btn.textContent = '验证中...'
+  err.textContent = ''
+  try {
+    const r = await fetch(LOGIN_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pwd })
+    })
+    if (r.ok) {
+      const d = await r.json()
+      _sessionToken = d.token
+      sessionStorage.setItem('sh_session', _sessionToken)
+      document.getElementById('login-mask').classList.add('hidden')
+      startApp()
+    } else {
+      err.textContent = '密码错误，请重试'
+    }
+  } catch(e) {
+    err.textContent = '连接失败：' + e.message
+  } finally {
+    btn.disabled = false; btn.textContent = '登 录'
+  }
+}
+
+function sessionHeaders(extra) {
+  return { 'X-Session-Token': _sessionToken, ...extra }
+}
+
+// 页面加载时检查是否已有 session
+window.addEventListener('DOMContentLoaded', async () => {
+  if (_sessionToken) {
+    // 验证 session 是否仍有效
+    try {
+      const r = await fetch(`${IOTDA_BASE}/v5/iot/${PROJECT_ID}/devices/${DEVICE_ID}/shadow`,
+        { headers: sessionHeaders() })
+      if (r.status !== 401) {
+        document.getElementById('login-mask').classList.add('hidden')
+        startApp()
+        return
+      }
+    } catch(e) {}
+    _sessionToken = ''
+    sessionStorage.removeItem('sh_session')
+  }
+  // 显示登录框，聚焦密码输入
+  setTimeout(() => document.getElementById('login-pwd').focus(), 100)
+})
+
+// ═══════════════════════════════════════════════
+//  IAM Token（缓存 23h）
+// ═══════════════════════════════════════════════
+let _tok = null, _tokExp = 0
+async function getToken() {
+  if (_tok && Date.now() < _tokExp) return _tok
+  const r = await fetch(IAM_URL, {
+    method:'POST',
+    headers: sessionHeaders({'Content-Type':'application/json'}),
+    body: JSON.stringify({ auth:{
+      identity:{ methods:['password'], password:{ user:{
+        domain:{ id:DOMAIN_ID }, name:USERNAME, password:PASSWORD
+      }}},
+      scope:{ project:{ id:PROJECT_ID }}
+    }})
+  })
+  if (r.status !== 201) throw new Error('IAM 认证失败 ' + r.status)
+  _tok = r.headers.get('x-subject-token')
+  _tokExp = Date.now() + 23*3600*1000
+  return _tok
+}
+
+// ═══════════════════════════════════════════════
+//  IoTDA API
+// ═══════════════════════════════════════════════
+async function fetchShadow() {
+  const tok = await getToken()
+  const r = await fetch(`${IOTDA_BASE}/v5/iot/${PROJECT_ID}/devices/${DEVICE_ID}/shadow`,
+    { headers: sessionHeaders({ 'X-Auth-Token':tok }) })
+  if (!r.ok) throw new Error('Shadow ' + r.status)
+  return r.json()
+}
+async function sendCmd(name, paras) {
+  const tok = await getToken()
+  const r = await fetch(`${IOTDA_BASE}/v5/iot/${PROJECT_ID}/devices/${DEVICE_ID}/commands`,{
+    method:'POST',
+    headers: sessionHeaders({'Content-Type':'application/json','X-Auth-Token':tok}),
+    body: JSON.stringify({ service_id:SERVICE_ID, command_name:name, paras })
+  })
+  if (!r.ok) { const t=await r.text(); throw new Error(`${r.status}: ${t}`) }
+  return r.json()
+}
+
+// ═══════════════════════════════════════════════
+//  本地状态
+// ═══════════════════════════════════════════════
+const S = { led:false, buzzer:false }
+
+// ═══════════════════════════════════════════════
+//  图表工厂
+// ═══════════════════════════════════════════════
+let MAX_PTS = 60
+
+// 原始历史数据（不受 MAX_PTS 截断，用于切换 range）
+const RAW = { temp:[], humi:[], light:[], labels:[] }
+
+function mkChart(id, color, yMin, yMax, refLine) {
+  const ctx = document.getElementById(id)
+  if (!ctx) return null
+  const grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200)
+  grad.addColorStop(0,   color + '40')
+  grad.addColorStop(0.6, color + '10')
+  grad.addColorStop(1,   color + '00')
+
+  const datasets = [{
+    data:[], borderColor:color, backgroundColor:grad,
+    borderWidth:2, pointRadius:0, pointHoverRadius:5,
+    pointHoverBackgroundColor:color, pointHoverBorderColor:'#fff',
+    pointHoverBorderWidth:2,
+    fill:true, tension:.35
+  }]
+
+  // 参考线（annotation 插件不可用时用第二条 dataset 模拟）
+  if (refLine != null) {
+    datasets.push({
+      data:[], borderColor: color + '50', borderWidth:1,
+      borderDash:[6,4], pointRadius:0, fill:false, tension:0
+    })
+  }
+
+  return new Chart(ctx, {
+    type:'line',
+    data:{ labels:[], datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{ duration:300 },
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          backgroundColor:'rgba(13,22,38,.95)',
+          borderColor:'rgba(56,189,248,.25)', borderWidth:1,
+          titleColor:'#94a3b8', bodyColor:'#f0f6ff',
+          padding:12, cornerRadius:10,
+          callbacks:{
+            title: items => items[0].label,
+            label: item => item.datasetIndex===0
+              ? ` ${item.formattedValue}` : null,
+            afterLabel: () => null
+          },
+          filter: item => item.datasetIndex === 0
+        }
+      },
+      scales:{
+        x:{
+          ticks:{ color:'#475569', maxTicksLimit:8, font:{size:10} },
+          grid:{ color:'rgba(255,255,255,.03)', drawBorder:false }
+        },
+        y:{
+          min:yMin, max:yMax,
+          ticks:{ color:'#475569', font:{size:10}, maxTicksLimit:6 },
+          grid:{ color:'rgba(255,255,255,.05)', drawBorder:false }
+        }
+      }
+    }
+  })
+}
+
+// 总览页小图
+const CH = {
+  temp: mkChart('c-temp', '#f59e0b', 0, 60),
+  humi: mkChart('c-humi', '#38bdf8', 0, 100),
+}
+// 曲线页专业大图（光照图有 3000 参考线）
+const CH2 = {
+  temp:  mkChart('c-temp2',  '#f59e0b', 0,   60,   null),
+  humi:  mkChart('c-humi2',  '#38bdf8', 0,  100,   null),
+  light: mkChart('c-light2', '#a78bfa', 0, 4095,   3000),
+}
+
+function ts() {
+  const n=new Date()
+  return `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`
+}
+function pad(x){ return String(x).padStart(2,'0') }
+
+// 推入原始数据，再重绘受限视图
+function pushRaw(key, val, label) {
+  RAW[key].push(val)
+  RAW.labels.push(label)
+}
+
+function rebuildChart(chart, rawData, refVal) {
+  if (!chart) return
+  const lim = MAX_PTS === 0 ? rawData.length : MAX_PTS
+  const slice = rawData.slice(-lim)
+  const lslice = RAW.labels.slice(-lim)
+  chart.data.labels = lslice
+  chart.data.datasets[0].data = slice
+  if (chart.data.datasets[1]) {
+    chart.data.datasets[1].data = slice.map(() => refVal)
+  }
+  chart.update('none')
+}
+
+function rebuildAll() {
+  rebuildChart(CH2.temp,  RAW.temp,  null)
+  rebuildChart(CH2.humi,  RAW.humi,  null)
+  rebuildChart(CH2.light, RAW.light, 3000)
+  // 总览小图也跟随
+  const lim = MAX_PTS === 0 ? RAW.temp.length : Math.min(MAX_PTS, 20)
+  ;['temp','humi'].forEach(k => {
+    const ch = CH[k]
+    if (!ch) return
+    ch.data.labels = RAW.labels.slice(-lim)
+    ch.data.datasets[0].data = RAW[k].slice(-lim)
+    ch.update('none')
+  })
+}
+
+function setRange(n, btn) {
+  MAX_PTS = n
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  rebuildAll()
+}
+
+function clearHistory() {
+  RAW.temp=[]; RAW.humi=[]; RAW.light=[]; RAW.labels=[]
+  rebuildAll()
+  updateProStats()
+}
+
+// 推入一个数据点并更新
+function push(key, val) {
+  const label = ts()
+  pushRaw(key, val, label)
+  rebuildAll()
+}
+
+// 专业统计面板更新
+function updateProStats() {
+  function stats(arr, prefix, unit, decimals) {
+    const el = (s) => document.getElementById(prefix + s)
+    if (!arr.length) {
+      ['min','max','avg','cnt'].forEach(s => { const e=el(s); if(e) e.textContent='—' })
+      return
+    }
+    const mn = Math.min(...arr), mx = Math.max(...arr)
+    const avg = arr.reduce((a,b)=>a+b,0)/arr.length
+    const fmt = v => v.toFixed(decimals) + (unit ? unit : '')
+    if(el('min')) el('min').textContent = fmt(mn)
+    if(el('max')) el('max').textContent = fmt(mx)
+    if(el('avg')) el('avg').textContent = fmt(avg)
+    if(el('cnt')) el('cnt').textContent = arr.length
+  }
+  const lim = MAX_PTS === 0 ? Infinity : MAX_PTS
+  stats(RAW.temp.slice(-lim),  'ps-temp-',  '°C',  1)
+  stats(RAW.humi.slice(-lim),  'ps-humi-',  '%',   1)
+  stats(RAW.light.slice(-lim), 'ps-light-', '',    0)
+}
+
+function minMax(arr) {
+  if (!arr.length) return '—'
+  return `↓${Math.min(...arr).toFixed(1)}  ↑${Math.max(...arr).toFixed(1)}`
+}
+
+// ═══════════════════════════════════════════════
+//  UI 更新
+// ═══════════════════════════════════════════════
+function badge(on, onT, offT, warn) {
+  if (on) return `<span class="badge ${warn?'b-warn':'b-on'}">${onT}</span>`
+  return `<span class="badge b-off">${offT}</span>`
+}
+
+function updateData(p) {
+  if (p.temperature != null) {
+    const v = Number(p.temperature).toFixed(1)
+    document.getElementById('v-temp').textContent = v
+    document.getElementById('pv-temp').innerHTML = v + '<span class="pro-chart-unit">°C</span>'
+    push('temp', p.temperature)
+    document.getElementById('cs-temp').textContent = minMax(RAW.temp)
+  }
+  if (p.humidity != null) {
+    const v = Number(p.humidity).toFixed(1)
+    document.getElementById('v-humi').textContent = v
+    document.getElementById('pv-humi').innerHTML = v + '<span class="pro-chart-unit">%RH</span>'
+    push('humi', p.humidity)
+    document.getElementById('cs-humi').textContent = minMax(RAW.humi)
+  }
+  if (p.light != null) {
+    document.getElementById('v-light').textContent = p.light
+    document.getElementById('pv-light').innerHTML = p.light + '<span class="pro-chart-unit">ADC</span>'
+    push('light', p.light)
+  }
+  updateProStats()
+
+  if (p.pir  != null) document.getElementById('v-pir').innerHTML  = badge(p.pir,  '检测到人','无人')
+  if (p.lock != null) document.getElementById('v-lock').innerHTML = badge(p.lock, '已开锁','已上锁')
+
+  // 告警
+  let alertTxt = ''
+  if (p.temperature > 30)   alertTxt = `温度过高：${Number(p.temperature).toFixed(1)} °C，已触发云端告警规则`
+  else if (p.humidity > 70) alertTxt = `湿度过高：${Number(p.humidity).toFixed(1)} %RH，已触发云端告警规则`
+  const bar = document.getElementById('alert-bar')
+  if (alertTxt) {
+    document.getElementById('alert-msg').textContent = alertTxt
+    bar.classList.add('show')
+  } else {
+    bar.classList.remove('show')
+  }
+}
+
+function syncCtrl() {
+  // LED
+  document.getElementById('tog-led').checked = S.led
+  document.getElementById('ico-led').className = 'ctrl-ico-wrap' + (S.led?' active':'')
+  document.getElementById('lbl-led').textContent = S.led ? '已开启' : '已关闭'
+  document.getElementById('v-led').innerHTML = badge(S.led,'已开','已关')
+  // 蜂鸣器
+  document.getElementById('tog-buz').checked = S.buzzer
+  document.getElementById('ico-buz').className = 'ctrl-ico-wrap' + (S.buzzer?' active-warn':'')
+  document.getElementById('lbl-buz').textContent = S.buzzer ? '响中' : '已关闭'
+  document.getElementById('v-buzzer').innerHTML = badge(S.buzzer,'响中','静音',S.buzzer)
+}
+
+// ═══════════════════════════════════════════════
+//  控制
+// ═══════════════════════════════════════════════
+async function toggleLED(el) {
+  el.disabled = true
+  const next = el.checked
+  try {
+    await sendCmd('SetLED',{ led: next?1:0, force: 1 })
+    S.led = next; syncCtrl()
+    toast(`灯光已${next?'开启':'关闭'}`,'ok')
+  } catch(e) {
+    el.checked = !next
+    toast('命令失败: '+e.message,'err')
+  } finally { el.disabled = false }
+}
+
+async function toggleBuzzer(el) {
+  el.disabled = true
+  const next = el.checked
+  try {
+    await sendCmd('SetBuzzer',{ buzzer: next?1:0 })
+    S.buzzer = next; syncCtrl()
+    toast(`蜂鸣器已${next?'开启':'关闭'}`,'ok')
+  } catch(e) {
+    el.checked = !next
+    toast('命令失败: '+e.message,'err')
+  } finally { el.disabled = false }
+}
+
+async function triggerLock() {
+  const btn = document.getElementById('btn-lock')
+  btn.disabled = true
+  btn.textContent = '下发中...'
+  const ico = document.getElementById('ico-lock')
+  ico.className = 'ctrl-ico-wrap active'
+  try {
+    await sendCmd('SetLock',{ lock:1 })
+    toast('开锁脉冲已下发','ok')
+  } catch(e) {
+    toast('命令失败: '+e.message,'err')
+  } finally {
+    setTimeout(()=>{
+      btn.disabled=false; btn.textContent='发送开锁脉冲'
+      ico.className='ctrl-ico-wrap'
+    }, 2000)
+  }
+}
+
+function dismissAlert() {
+  document.getElementById('alert-bar').classList.remove('show')
+}
+
+// ═══════════════════════════════════════════════
+//  轮询
+// ═══════════════════════════════════════════════
+async function poll() {
+  try {
+    const d = await fetchShadow()
+    const props = d?.shadow?.[0]?.reported?.properties
+    if (props) updateData(props)
+    setConn(true)
+    const n = new Date()
+    document.getElementById('last-upd').textContent =
+      `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())} 更新`
+  } catch(e) {
+    setConn(false)
+    console.warn('[poll]', e.message)
+  }
+}
+
+function setConn(ok) {
+  document.getElementById('conn-dot').className = ok?'ok':''
+  document.getElementById('conn-txt').textContent = ok?'已连接':'连接失败'
+}
+
+// ═══════════════════════════════════════════════
+//  页签切换
+// ═══════════════════════════════════════════════
+const TAB_META = {
+  overview: { title:'总览',   sub:'实时监控所有传感器与设备状态' },
+  control:  { title:'控制',   sub:'远程控制设备开关与执行动作' },
+  charts:   { title:'数据曲线', sub:'历史数据折线图，最近 60 条记录' },
+  about:    { title:'设备信息', sub:'硬件配置与平台接入参数' },
+}
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'))
+  document.getElementById('tab-'+id).classList.add('active')
+  event.currentTarget.classList.add('active')
+  const m = TAB_META[id]
+  document.getElementById('page-title').textContent = m.title
+  document.getElementById('page-sub').textContent   = m.sub
+  // 切换到曲线页时刷新图表布局
+  if (id==='charts') setTimeout(()=>Object.values(CH2).forEach(c=>c&&c.resize()),50)
+}
+
+// ═══════════════════════════════════════════════
+//  Toast
+// ═══════════════════════════════════════════════
+let _tt=null
+function toast(msg, type='') {
+  const el=document.getElementById('toast')
+  el.innerHTML = (type==='ok'?'✓ ':type==='err'?'✕ ':'')+msg
+  el.className=`show ${type}`
+  clearTimeout(_tt)
+  _tt=setTimeout(()=>el.className='',3500)
+}
+
+// ═══════════════════════════════════════════════
+//  启动
+// ═══════════════════════════════════════════════
+let _pollTimer = null
+function startApp() {
+  syncCtrl()
+  poll()
+  if (_pollTimer) clearInterval(_pollTimer)
+  _pollTimer = setInterval(poll, POLL_MS)
+}
+</script>
+</body>
+</html>
