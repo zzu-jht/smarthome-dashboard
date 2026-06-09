@@ -158,13 +158,13 @@ class Handler(SimpleHTTPRequestHandler):
 {{"type":"query","reply":"回复"}}
 
 命令示例：
-- 开灯：{{"type":"command","action":"SetLED","paras":{{"led":1,"force":1}},"reply":"好的，灯已开启"}}
-- 关灯：{{"type":"command","action":"SetLED","paras":{{"led":0,"force":1}},"reply":"好的，灯已关闭"}}
-- 开蜂鸣器：{{"type":"command","action":"SetBuzzer","paras":{{"buzzer":1}},"reply":"好的，蜂鸣器已开启"}}
-- 关蜂鸣器：{{"type":"command","action":"SetBuzzer","paras":{{"buzzer":0}},"reply":"好的，蜂鸣器已关闭"}}
+- 开灯：{{"type":"command","action":"SetLED","paras":{{"led":1,"manual":1}},"reply":"好的，灯已开启"}}
+- 关灯：{{"type":"command","action":"SetLED","paras":{{"led":0,"manual":1}},"reply":"好的，灯已关闭"}}
+- 开蜂鸣器：{{"type":"command","action":"SetBuzzer","paras":{{"buzzer":1,"manual":1}},"reply":"好的，蜂鸣器已开启"}}
+- 关蜂鸣器：{{"type":"command","action":"SetBuzzer","paras":{{"buzzer":0,"manual":1}},"reply":"好的，蜂鸣器已关闭"}}
 - 开锁：{{"type":"command","action":"SetLock","paras":{{"lock":1}},"reply":"好的，正在开锁"}}
-- 同时开灯和蜂鸣器：{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":1,"force":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":1}}}}],"reply":"好的，灯和蜂鸣器已全部开启"}}
-- 同时关灯和蜂鸣器：{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":0,"force":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":0}}}}],"reply":"好的，灯和蜂鸣器已全部关闭"}}
+- 同时开灯和蜂鸣器：{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":1,"manual":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":1,"manual":1}}}}],"reply":"好的，灯和蜂鸣器已全部开启"}}
+- 同时关灯和蜂鸣器：{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":0,"manual":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":0,"manual":1}}}}],"reply":"好的，灯和蜂鸣器已全部关闭"}}
 - 查温度：{{"type":"query","reply":"当前温度{sensor.get('temperature', '--')}°C"}}
 - 查湿度：{{"type":"query","reply":"当前湿度{sensor.get('humidity', '--')}%"}}
 - 有没有人：{{"type":"query","reply":"{'检测到有人' if sensor.get('pir') else '目前无人'}"}}"""
