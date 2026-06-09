@@ -136,38 +136,24 @@ class Handler(SimpleHTTPRequestHandler):
         if not POLO_API_KEY:
             self._json(500, {'error': 'CLAUDE_API_KEY未配置'}); return
 
-        system_prompt = f"""你是一个智能家居语音助手，负责理解用户的语音指令并转化为设备操作命令。
+        system_prompt = f"""你是智能家居控制助手。只能控制：LED灯(SetLED)、蜂鸣器(SetBuzzer)、门锁(SetLock)。用户说其他设备时忽略并在reply说"暂不支持"。
 
-当前设备状态：
-- LED灯：{'开启' if sensor.get('led') else '关闭'}
-- 蜂鸣器：{'开启' if sensor.get('buzzer') else '关闭'}
-- 温度：{sensor.get('temperature', '--')}°C
-- 湿度：{sensor.get('humidity', '--')}%
-- 光照：{sensor.get('light', '--')}
-- 人体感应：{'检测到人' if sensor.get('pir') else '无人'}
+设备状态：LED={'开' if sensor.get('led') else '关'} 蜂鸣器={'开' if sensor.get('buzzer') else '关'} 温度={sensor.get('temperature','--')}C 湿度={sensor.get('humidity','--')}% 光照={sensor.get('light','--')} 人={('有' if sensor.get('pir') else '无')}
 
-你必须只返回一个合法JSON对象，不要返回任何其他文字。
+严格规则：
+1. 只输出一个JSON对象，不加任何其他文字
+2. reply字段必须简短（10字以内），只说操作结果，不解释无关内容
+3. 只使用半角双引号，不使用中文引号
 
-单个命令格式：
-{{"type":"command","action":"命令名","paras":{{}},"reply":"回复"}}
+格式（三选一）：
+{{"type":"command","action":"SetLED","paras":{{"led":1,"manual":1}},"reply":"好的"}}
+{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":1,"manual":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":1,"manual":1}}}}],"reply":"好的"}}
+{{"type":"query","reply":"温度{sensor.get('temperature','--')}C"}}
 
-多个命令格式（同时控制多个设备时使用）：
-{{"type":"multi_command","commands":[{{"action":"命令名","paras":{{}}}}],"reply":"回复"}}
-
-查询格式：
-{{"type":"query","reply":"回复"}}
-
-命令示例：
-- 开灯：{{"type":"command","action":"SetLED","paras":{{"led":1,"manual":1}},"reply":"好的，灯已开启"}}
-- 关灯：{{"type":"command","action":"SetLED","paras":{{"led":0,"manual":1}},"reply":"好的，灯已关闭"}}
-- 开蜂鸣器：{{"type":"command","action":"SetBuzzer","paras":{{"buzzer":1,"manual":1}},"reply":"好的，蜂鸣器已开启"}}
-- 关蜂鸣器：{{"type":"command","action":"SetBuzzer","paras":{{"buzzer":0,"manual":1}},"reply":"好的，蜂鸣器已关闭"}}
-- 开锁：{{"type":"command","action":"SetLock","paras":{{"lock":1}},"reply":"好的，正在开锁"}}
-- 同时开灯和蜂鸣器：{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":1,"manual":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":1,"manual":1}}}}],"reply":"好的，灯和蜂鸣器已全部开启"}}
-- 同时关灯和蜂鸣器：{{"type":"multi_command","commands":[{{"action":"SetLED","paras":{{"led":0,"manual":1}}}},{{"action":"SetBuzzer","paras":{{"buzzer":0,"manual":1}}}}],"reply":"好的，灯和蜂鸣器已全部关闭"}}
-- 查温度：{{"type":"query","reply":"当前温度{sensor.get('temperature', '--')}°C"}}
-- 查湿度：{{"type":"query","reply":"当前湿度{sensor.get('humidity', '--')}%"}}
-- 有没有人：{{"type":"query","reply":"{'检测到有人' if sensor.get('pir') else '目前无人'}"}}"""
+命令参数：
+- SetLED: {{"led":1或0,"manual":1}}
+- SetBuzzer: {{"buzzer":1或0,"manual":1}}
+- SetLock: {{"lock":1}}"""
 
         ai_body = json.dumps({
             'model': 'claude-sonnet-4-20250514',
@@ -190,14 +176,27 @@ class Handler(SimpleHTTPRequestHandler):
             with urllib.request.urlopen(req, timeout=20) as r:
                 result = json.loads(r.read())
             content = result['content'][0]['text'].strip()
-            # 找到第一个 { 的位置，用 raw_decode 精确提取第一个完整 JSON 对象
+            # 替换全角引号为半角，再提取第一个完整 JSON 对象
+            content = content.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
             start = content.find('{')
             if start == -1:
                 self._json(500, {'error': 'AI返回格式异常: ' + content}); return
             try:
                 ai_json, _ = json.JSONDecoder().raw_decode(content, start)
-            except json.JSONDecodeError as e:
-                self._json(500, {'error': 'AI返回JSON解析失败: ' + str(e) + ' | ' + content}); return
+            except json.JSONDecodeError:
+                # 解析失败：尝试用正则抢救 action 和 reply，降级为单命令执行
+                action_m = re.search(r'"action"\s*:\s*"(Set\w+)"', content)
+                reply_m  = re.search(r'"reply"\s*:\s*"([^"]*)"', content)
+                if action_m:
+                    paras_map = {'SetLED': {'led': 1, 'manual': 1}, 'SetBuzzer': {'buzzer': 1, 'manual': 1}, 'SetLock': {'lock': 1}}
+                    ai_json = {
+                        'type': 'command',
+                        'action': action_m.group(1),
+                        'paras': paras_map.get(action_m.group(1), {}),
+                        'reply': reply_m.group(1) if reply_m else '好的'
+                    }
+                else:
+                    self._json(500, {'error': 'AI返回JSON解析失败 | ' + content[:200]}); return
             # multi_command: 执行每条子命令
             if ai_json.get('type') == 'multi_command':
                 token = self._get_hw_token()
